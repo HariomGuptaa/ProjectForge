@@ -8,6 +8,7 @@ import {
   sendEmail,
 } from "../utils/mail.js";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -219,7 +220,7 @@ const resendEmailVerification = asyncHandler(async (req, res) => {
     subject: "Please verify your email",
     mailgenContent: emailVerificationMailgenContent(
       user.username,
-      `${req.protocol}://${req.get("host")}/api/v1/users/verify-email/${unHashedToken}`,
+      `${req.protocol}://${req.get("host")}/api/v1/auth/verify-email/${unHashedToken}`,
     ),
   });
 
@@ -318,15 +319,24 @@ const resetForgotPassword = asyncHandler(async (req, res) => {
   const { resetToken } = req.params;
   const { newPassword } = req.body;
 
+  console.log("--- DEBUG PASSWORD RESET ---");
+  console.log("1. Raw token received from URL:", resetToken);
+
   let hashedToken = crypto
     .createHash("sha256")
     .update(resetToken)
     .digest("hex");
 
+    console.log("2. Generated Hash to search in DB:", hashedToken);
+  console.log("3. Current server time (ms):", Date.now());
+
   const user = await User.findOne({
     forgotPasswordToken: hashedToken,
     forgotPasswordExpiry: { $gt: Date.now() },
   });
+
+  console.log("4. User found in DB:", user ? user.username : "NO USER FOUND");
+  console.log("----------------------------");
 
   if (!user) {
     throw new ApiError(489, "Token is invalid or expired");
